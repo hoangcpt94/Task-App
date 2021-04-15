@@ -3,7 +3,8 @@ const User = require('./models/user')
 const Task = require('./models/task')
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 5000
+
 
 app.use(express.json())
 
@@ -17,6 +18,15 @@ app.post('/users', async (req, res) => {
 	}
 	
 	// user.save().then(() => res.status(201).send(user)).catch(error => res.status(400).send(error))
+})
+
+app.post('/users/login', async(req, res) => {
+	try {
+		const user = await User.findByCredentials(req.body.email, req.body.password)
+		res.send(user)
+	} catch (error) {
+		res.status(400).send()
+	}
 })
 
 app.get('/users', async (req, res) => {
@@ -62,7 +72,13 @@ app.patch('/users/:id', async (req, res) => {
 	}
 
 	try {
-		const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
+		const user = await User.findById(req.params.id)
+
+		updates.forEach(update => user[update] = req.body[update])
+
+		await user.save()
+
+		// const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
 		if(!user) {
 			return res.status(404).send()
 		}
@@ -137,7 +153,11 @@ app.patch('/tasks/:id', async (req, res) => {
 		return res.status(400).send({ error: 'Invalid updates!'})
 	}
 	try {
-		const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
+		const task = await Task.findById(req.params.id)
+		updates.forEach(update => task[update] = req.body[update])
+		await task.save()
+
+		// const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
 		if (!task) {
 			return res.status(404).send()
 		}
@@ -160,6 +180,18 @@ app.delete('/tasks/:id', async (req, res) => {
 	}
 })
 
+const jwt = require('jsonwebtoken');
+
+const myFunction = async () => {
+	// The first argument is an object, the second argument is signature (random characters)
+	// The object contains the data that going to be embeded in your token
+	// this case, the User Id works perfectly because it 's unique
+	const token = jwt.sign({ _id: 'abcd123'}, 'mynameisHoang', { expiresIn: '0 second'})
+	console.log(token)
+	const data = jwt.verify(token, 'mynameisHoang')
+	console.log(data)
+}
+myFunction()
 
 app.listen(port, () => {
 	console.log('Server is up on port ' + port)
