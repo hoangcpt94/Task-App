@@ -2,6 +2,7 @@ const uri = "mongodb+srv://taskapp:tongtulenh@cluster0.jbiwx.mongodb.net/taskapp
 const mongoose = require('mongoose');
 const validator = require('validator')
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 
 mongoose.connect(uri, {useNewUrlParser: true, useCreateIndex: true});
@@ -47,9 +48,28 @@ const userSchema = new mongoose.Schema({
 				throw new Error('Password cannot contain "password"')
 			}
 		}
-	}
+	},
+	tokens: [{
+		token: {
+			type: String,
+			required: true
+		}
+	}]
 })
 
+
+// Instance methods
+userSchema.methods.generateAuthToken = async function() {
+	const user = this
+	const token = jwt.sign({ _id: user._id.toString() }, 'mynameisHoang')
+
+	user.tokens = user.tokens.concat({ token })
+	await user.save()
+
+	return token
+}
+
+// Model methods
 userSchema.statics.findByCredentials = async (email, password) => {
 	const user = await User.findOne({ email })
 

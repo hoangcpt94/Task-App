@@ -1,10 +1,20 @@
 const express = require('express');
 const User = require('./models/user')
 const Task = require('./models/task')
+const auth = require('./middleware/auth')
 
 const app = express()
-const port = process.env.PORT || 5000
+const port = process.env.PORT || 3000
 
+/*
+app.use((req, res, next) => {
+	if (req.method === 'GET') {
+		res.send('Get request are disabled')
+	} else {
+		next()
+	}
+})
+*/
 
 app.use(express.json())
 
@@ -12,7 +22,8 @@ app.post('/users', async (req, res) => {
 	const user = new User(req.body)
 	try {
 		await user.save()
-		res.status(201).send(user)
+		const token = await user.generateAuthToken()
+		res.status(201).send({user, token})
 	} catch (error ) {
 		res.status(400).send(error)
 	}
@@ -23,13 +34,14 @@ app.post('/users', async (req, res) => {
 app.post('/users/login', async(req, res) => {
 	try {
 		const user = await User.findByCredentials(req.body.email, req.body.password)
-		res.send(user)
+		const token = await user.generateAuthToken()
+		res.send({user, token})
 	} catch (error) {
 		res.status(400).send()
 	}
 })
 
-app.get('/users', async (req, res) => {
+app.get('/users', auth ,async (req, res) => {
 	try {
 		const users = await User.find({})
 		res.send(users)
@@ -182,6 +194,7 @@ app.delete('/tasks/:id', async (req, res) => {
 
 const jwt = require('jsonwebtoken');
 
+/*
 const myFunction = async () => {
 	// The first argument is an object, the second argument is signature (random characters)
 	// The object contains the data that going to be embeded in your token
@@ -192,6 +205,7 @@ const myFunction = async () => {
 	console.log(data)
 }
 myFunction()
+*/
 
 app.listen(port, () => {
 	console.log('Server is up on port ' + port)
