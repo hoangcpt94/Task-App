@@ -57,6 +57,13 @@ const userSchema = new mongoose.Schema({
 	}]
 })
 
+// This is virtual field that relationship between User and Task, not a real field
+// Not the actual data store in the database
+userSchema.virtual('tasks', {
+	ref: 'Task',
+	localField: '_id',
+	foreignField: 'owner'
+})
 
 // Instance methods
 userSchema.methods.generateAuthToken = async function() {
@@ -67,6 +74,17 @@ userSchema.methods.generateAuthToken = async function() {
 	await user.save()
 
 	return token
+}
+
+
+userSchema.methods.toJSON = function() {
+	const user = this
+	const userObject = user.toObject()
+
+	delete userObject.password
+	delete userObject.tokens
+
+	return userObject
 }
 
 // Model methods

@@ -23,7 +23,7 @@ app.post('/users', async (req, res) => {
 	try {
 		await user.save()
 		const token = await user.generateAuthToken()
-		res.status(201).send({user, token})
+		res.status(201).send({ user, token })
 	} catch (error ) {
 		res.status(400).send(error)
 	}
@@ -35,7 +35,10 @@ app.post('/users/login', async(req, res) => {
 	try {
 		const user = await User.findByCredentials(req.body.email, req.body.password)
 		const token = await user.generateAuthToken()
-		res.send({user, token})
+
+		// When we res.send, it's automatically call the function JSON.stringify()
+		// then we redefine methods.toJSON to return the new object (that filter password and tokens) 
+		res.send({ user, token })
 	} catch (error) {
 		res.status(400).send()
 	}
@@ -67,28 +70,30 @@ app.get('/users/me', auth ,async (req, res) => {
 	// User.find({}).then(users => res.send(users)).catch(error => res.status(500).send())
 })
 
-app.get('/users/:id', async (req, res) => {
-	const _id = req.params.id
-	try {
-		const user = await User.findById(_id)
-		if (!user) {
-			return res.status(404).send()
-		}
-		res.send(user)
-	} catch (error) {
-		res.status(500).send()
-	}
-	/*
-	User.findById(_id).then(user => {
-		if (!user) {
-			return res.status(404).send()
-		}
-		res.send(user)
-	}).catch(error => res.status(500).send())
-	*/
-})	
 
-app.patch('/users/:id', async (req, res) => {
+// app.get('/users/:id', async (req, res) => {
+// 	const _id = req.params.id
+// 	try {
+// 		const user = await User.findById(_id)
+// 		if (!user) {
+// 			return res.status(404).send()
+// 		}
+// 		res.send(user)
+// 	} catch (error) {
+// 		res.status(500).send()
+// 	}
+// 	/*
+// 	User.findById(_id).then(user => {
+// 		if (!user) {
+// 			return res.status(404).send()
+// 		}
+// 		res.send(user)
+// 	}).catch(error => res.status(500).send())
+// 	*/
+// })
+
+
+app.patch('/users/me', auth, async (req, res) => {
 	const updates = Object.keys(req.body)
 	const allowedUpdates = ['name', 'email', 'password', 'age']
 	const isValidOperation = updates.every(update => allowedUpdates.includes(update))
@@ -98,36 +103,38 @@ app.patch('/users/:id', async (req, res) => {
 	}
 
 	try {
-		const user = await User.findById(req.params.id)
+		updates.forEach(update => req.user[update] = req.body[update])
 
-		updates.forEach(update => user[update] = req.body[update])
-
-		await user.save()
+		await req.user.save()
 
 		// const user = await User.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
-		if(!user) {
-			return res.status(404).send()
-		}
-		res.send(user)	
+
+		res.send(req.user)	
 	} catch(error) {
 		res.status(400).send(error)
 	}
 })
 
-app.delete('/users/:id', async (req, res) => {
+app.delete('/users/me', auth, async (req, res) => {
 	try {
-		const user = await User.findByIdAndDelete(req.params.id)
-		if (!user) {
-			return res.status(404).send()
-		}
-		res.send(user)
+
+		// const user = await User.findByIdAndDelete(req.user._id)
+		// if (!user) {
+		// 	return res.status(404).send()
+		// }
+		await req.user.remove()
+		res.send(req.user)
 	} catch (error) {
 		res.status(500).send()
 	}
 })
 
-app.post('/tasks', async (req, res) => {
-	const task = new Task(req.body)
+app.post('/tasks', auth, async (req, res) => {
+	// const task = new Task(req.body)
+	const task = new Task({
+		...req.body,
+		owner: req.user._id
+	})
 	try {
 		await task.save()
 		res.status(201).send(task)
@@ -138,10 +145,11 @@ app.post('/tasks', async (req, res) => {
 	// task.save().then(() => res.status(201).send(task)).catch(error => res.status(400).send(error))
 })
 
-app.get('/tasks', async (req, res) => {
+app.get('/tasks', auth, async (req, res) => {
 	try {
-		const tasks = await Task.find({})
-		res.send(tasks)
+		// const tasks = await Task.find({ owner: req.user._id })
+		await req.user.populate('tasks').execPopulate()
+		res.send(req.user.tasks)
 	} catch (error) {
 		res.status(500).send()
 	}
@@ -149,10 +157,10 @@ app.get('/tasks', async (req, res) => {
 	// Task.find({}).then(tasks => res.send(tasks)).catch(error => res.status(500).send())
 })
 
-app.get('/tasks/:id', async (req, res) => {
+app.get('/tasks/:id', auth, async (req, res) => {
 	const _id = req.params.id
 	try {
-		const task = await Task.findById(_id)
+		const task = await Task.findOne({ _id, owner: req.user._id })
 		if (!task) {
 			return res.status(404).send()
 		}
@@ -171,7 +179,7 @@ app.get('/tasks/:id', async (req, res) => {
 	*/
 })
 
-app.patch('/tasks/:id', async (req, res) => {
+app.patch('/tasks/:id', auth, async (req, res) => {
 	const updates = Object.keys(req.body)
 	const allowedUpdates = ['description', 'completed']
 	const isValidOperation = updates.every(update => allowedUpdates.includes(update))
@@ -179,23 +187,25 @@ app.patch('/tasks/:id', async (req, res) => {
 		return res.status(400).send({ error: 'Invalid updates!'})
 	}
 	try {
-		const task = await Task.findById(req.params.id)
-		updates.forEach(update => task[update] = req.body[update])
-		await task.save()
+		const task = await Task.findOne({ _id: req.params.id, owner: req.user._id })
 
 		// const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true})
 		if (!task) {
 			return res.status(404).send()
 		}
+
+		updates.forEach(update => task[update] = req.body[update])
+		await task.save()
+
 		res.send(task)
 	} catch (error) {
 		res.status(400).send(error)
 	}
 })
 
-app.delete('/tasks/:id', async (req, res) => {
+app.delete('/tasks/:id', auth, async (req, res) => {
 	try {
-		const task = await Task.findByIdAndDelete(req.params.id)
+		const task = await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id })
 		if (!task) {
 			return res.status(404).send()
 		}
@@ -224,3 +234,21 @@ myFunction()
 app.listen(port, () => {
 	console.log('Server is up on port ' + port)
 })
+
+
+const main = async () => {
+
+	// const task = await Task.findById('6079482ebc91d915b006cc00')
+	// // populate data from a relationship
+	// await task.populate('owner').execPopulate()
+	// // Now the task.owner is now be the entire user's document instead of id
+	// console.log(task.owner)
+
+	const user = await User.findById('60784a8c1e1c7e1144ff9239')
+	// populate the task on the virtual field
+	await user.populate('tasks').execPopulate()
+	console.log(user.tasks)
+
+}
+
+main()
