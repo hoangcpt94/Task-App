@@ -4,7 +4,7 @@ const Task = require('./models/task')
 const auth = require('./middleware/auth')
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 5000
 
 /*
 app.use((req, res, next) => {
@@ -41,15 +41,29 @@ app.post('/users/login', async(req, res) => {
 	}
 })
 
-app.get('/users', auth ,async (req, res) => {
+app.post('/users/logout', auth, async(req, res) => {
 	try {
-		const users = await User.find({})
-		res.send(users)
+		req.user.tokens = req.user.tokens.filter(token => token.token != req.token)
+		await req.user.save()
+		res.send()
+
 	} catch (error) {
 		res.status(500).send()
 	}
-	
+})
 
+app.post('/users/logoutAll', auth, async(req, res) => {
+	try {
+		req.user.tokens = []
+		await req.user.save()
+		res.send()
+	} catch (error) {
+		res.status(500).send()
+	}
+})
+
+app.get('/users/me', auth ,async (req, res) => {
+	res.send(req.user)
 	// User.find({}).then(users => res.send(users)).catch(error => res.status(500).send())
 })
 
