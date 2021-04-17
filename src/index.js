@@ -146,9 +146,18 @@ app.post('/tasks', auth, async (req, res) => {
 })
 
 app.get('/tasks', auth, async (req, res) => {
+	const match = {}
+
+	if (req.query.completed) {
+		match.completed = req.query.completed === "true"
+	}
+
 	try {
 		// const tasks = await Task.find({ owner: req.user._id })
-		await req.user.populate('tasks').execPopulate()
+		await req.user.populate({
+			path: 'tasks',
+			match
+		}).execPopulate()
 		res.send(req.user.tasks)
 	} catch (error) {
 		res.status(500).send()
@@ -236,19 +245,19 @@ app.listen(port, () => {
 })
 
 
-const main = async () => {
+// const main = async () => {
 
-	// const task = await Task.findById('6079482ebc91d915b006cc00')
-	// // populate data from a relationship
-	// await task.populate('owner').execPopulate()
-	// // Now the task.owner is now be the entire user's document instead of id
-	// console.log(task.owner)
+// 	// const task = await Task.findById('6079482ebc91d915b006cc00')
+// 	// // populate data from a relationship
+// 	// await task.populate('owner').execPopulate()
+// 	// // Now the task.owner is now be the entire user's document instead of id
+// 	// console.log(task.owner)
 
-	const user = await User.findById('60784a8c1e1c7e1144ff9239')
-	// populate the task on the virtual field
-	await user.populate('tasks').execPopulate()
-	console.log(user.tasks)
+// 	const user = await User.findById('60784a8c1e1c7e1144ff9239')
+// 	// populate the task on the virtual field
+// 	await user.populate('tasks').execPopulate()
+// 	console.log(user.tasks)
 
-}
+// }
 
-main()
+// main()

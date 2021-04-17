@@ -56,6 +56,8 @@ const userSchema = new mongoose.Schema({
 			required: true
 		}
 	}]
+}, {
+	timestamps: true
 })
 
 // This is virtual field that relationship between User and Task, not a real field
