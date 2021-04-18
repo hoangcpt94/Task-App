@@ -2,6 +2,7 @@ const express = require('express');
 const User = require('./models/user')
 const Task = require('./models/task')
 const auth = require('./middleware/auth')
+const multer  = require('multer')
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -64,6 +65,16 @@ app.post('/users/logoutAll', auth, async(req, res) => {
 		res.status(500).send()
 	}
 })
+
+
+const upload = multer({
+	dest: 'avatars'
+})
+
+app.post('/users/me/avatar', upload.single('avatar'), (req, res) => {
+	res.send()
+})
+
 
 app.get('/users/me', auth ,async (req, res) => {
 	res.send(req.user)
@@ -145,18 +156,33 @@ app.post('/tasks', auth, async (req, res) => {
 	// task.save().then(() => res.status(201).send(task)).catch(error => res.status(400).send(error))
 })
 
+// GET /tasks?completed=true
+// Limit skip
+// GET /tasks?limit=10&skip=10
+// GET /tasks?sortBy=createdAt:desc
 app.get('/tasks', auth, async (req, res) => {
 	const match = {}
+	const sort = {}
 
 	if (req.query.completed) {
 		match.completed = req.query.completed === "true"
+	}
+
+	if (req.query.sortBy) {
+		const parts = req.query.sortBy.split('')
+		sort[parts[0]] = parts[1] === 'asc' ? 1 : -1
 	}
 
 	try {
 		// const tasks = await Task.find({ owner: req.user._id })
 		await req.user.populate({
 			path: 'tasks',
-			match
+			match,
+			options: {
+				limit: parseInt(req.query.limit),
+				skip: parseInt(req.query.skip),
+				sort
+			}
 		}).execPopulate()
 		res.send(req.user.tasks)
 	} catch (error) {
@@ -228,6 +254,7 @@ app.delete('/tasks/:id', auth, async (req, res) => {
 const jwt = require('jsonwebtoken');
 
 /*
+// Token
 const myFunction = async () => {
 	// The first argument is an object, the second argument is signature (random characters)
 	// The object contains the data that going to be embeded in your token
@@ -240,11 +267,24 @@ const myFunction = async () => {
 myFunction()
 */
 
+/*
+// Upload file
+const multer  = require('multer')
+const upload = multer({
+	dest: 'images'
+})
+
+app.post('/upload', upload.single('upload'), (req, res) => {
+	res.send()
+})
+*/
+
 app.listen(port, () => {
 	console.log('Server is up on port ' + port)
 })
 
 
+// Query all info user via owner that related to tasks
 // const main = async () => {
 
 // 	// const task = await Task.findById('6079482ebc91d915b006cc00')
