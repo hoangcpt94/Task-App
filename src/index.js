@@ -1,8 +1,10 @@
 const express = require('express');
+const multer  = require('multer')
+const sharp = require('sharp');
 const User = require('./models/user')
 const Task = require('./models/task')
 const auth = require('./middleware/auth')
-const multer  = require('multer')
+
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -68,13 +70,50 @@ app.post('/users/logoutAll', auth, async(req, res) => {
 
 
 const upload = multer({
-	dest: 'avatars'
+	limits: {
+		fileSize: 1000000
+	},
+	fileFilter(req, file, callback) {
+		if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+			return callback(new Error('Please upload an image'))
+		}
+		callback(undefined, true)
+		
+	}	
 })
 
-app.post('/users/me/avatar', upload.single('avatar'), (req, res) => {
+const errorMiddleware = (req, res, next) => {
+	throw new Error('From my middleware')
+}
+
+app.post('/users/me/avatar', auth, upload.single('avatar'), async (req, res) => {
+	const buffer = await sharp(req.file.buffer).resize({ width: 250, height: 250 }).png().toBuffer()
+	req.user.avatar = buffer
+	await req.user.save()
+	res.send()
+}, (error, req, res, next) => {
+	res.status(400).send({'error': error.message})
+})
+
+app.delete('/users/me/avatar', auth, async (req, res) => {
+	req.user.avatar = undefined
+	await req.user.save()
 	res.send()
 })
 
+app.get('/users/:id/avatar', async (req, res) => {
+	try {
+		const user = await User.findById(req.params.id)
+		if (!user?.avatar) {
+			throw new Error
+		}
+
+		res.set('Content-Type', 'image/png')
+		res.send(user.avatar)
+	} catch (error) {
+		res.status(404).send()
+	}
+})
 
 app.get('/users/me', auth ,async (req, res) => {
 	res.send(req.user)
@@ -271,8 +310,31 @@ myFunction()
 // Upload file
 const multer  = require('multer')
 const upload = multer({
-	dest: 'images'
+	dest: 'images',
+	limits: {
+		fileSize: 1000000
+	},
+	fileFilter(req, file, callback) {
+		if (!file.originalname.endsWith('pdf')) {
+			return callback(new Error('Please upload a PDF'))
+		}
+		callback(undefined, true)
+	}	
+
+		// fileFilter(req, file, callback) {
+		// if (!file.originalname.match(/\.(doc|docx)$/)) {
+		// 	return callback(new Error('Please upload a Word document'))
+		// }
+		// callback(undefined, true)
+	
+		// callback(new Error('File must be a PDF'))
+		// callback(undefined, true)
+		// callback(undefined, false)
 })
+
+const errorMiddleware = (req, res, next) => {
+	throw new Error('From my middleware')
+}
 
 app.post('/upload', upload.single('upload'), (req, res) => {
 	res.send()
